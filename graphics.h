@@ -1,9 +1,27 @@
 #include <SDL3/SDL.h>
+#include <cmath>
 
 class Platform{
     public:
+
+    static void AudioCallBack(void* userdata, SDL_AudioStream* stream, int moreAmm, int totalAmm){
+        int samples = moreAmm / sizeof(int16_t);
+        int16_t* buffer = new int16_t[samples];
+        static int sampleIndex = 0;
+
+        for(int i = 0; i < samples; i++){
+            float t = (float)sampleIndex / 44100.0f;
+            buffer[i] = (int16_t)(sinf(2.0f * 3.1519f * 440.0f * t) * 3000);
+            sampleIndex++;
+            if(sampleIndex >= 44100) sampleIndex = 0;
+        }
+
+        SDL_PutAudioStreamData(stream, buffer, moreAmm);
+        delete[] buffer;
+    }
+
     Platform(char const* title, int windowWidth, int windowHeight, int textureWidth, int textureHeight){
-        SDL_Init(SDL_INIT_VIDEO);
+        SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO);
         window = SDL_CreateWindow(title, windowWidth, windowHeight, 0);
         if(!window){
             SDL_Log("Failed to create window: %s", SDL_GetError());
@@ -16,11 +34,21 @@ class Platform{
 
         texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBA32, SDL_TEXTUREACCESS_STREAMING, textureWidth, textureHeight);
         if(!texture){
-            SDL_Log("Failed to create renderer: %s", SDL_GetError());
+            SDL_Log("Failed to create texture: %s", SDL_GetError());
+        }
+
+        SDL_AudioSpec spec;
+        spec.freq = 44100;
+        spec.format = SDL_AUDIO_S16;
+        spec.channels = 1;
+        audiostream = SDL_OpenAudioDeviceStream(SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK, &spec, AudioCallBack, nullptr);
+        if(!audiostream){
+            SDL_Log("Failed to create audio stream: %s", SDL_GetError());
         }
     }
 
     ~Platform(){
+        SDL_DestroyAudioStream(audiostream);
         SDL_DestroyTexture(texture);
         SDL_DestroyRenderer(renderer);
         SDL_DestroyWindow(window);
@@ -95,11 +123,27 @@ class Platform{
     return quit;
     }
 
+    void startSound(){
+        if(!audioPlaying){
+            SDL_ResumeAudioStreamDevice(audiostream);
+            audioPlaying = true;
+        }
+    }
+
+    void stopSound(){
+        if(audioPlaying){
+            SDL_PauseAudioStreamDevice(audiostream);
+            audioPlaying = false;
+        }
+    }
+
 
     private:
     SDL_Window* window{};   
     SDL_Renderer* renderer{};
     SDL_Texture* texture{};
+    SDL_AudioStream* audiostream{};
+    bool audioPlaying = false;
 
 
 };

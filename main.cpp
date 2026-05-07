@@ -32,6 +32,12 @@ int main(int argc, char* argv[]){
             lastCycletime = currentTime;
             chip8.Cycle();
             platform.Update(chip8.video, videoPitch);
+
+            if(chip8.soundtimer > 0){
+                platform.startSound();
+            } else{
+                platform.stopSound();
+            }
         }
 
     }
